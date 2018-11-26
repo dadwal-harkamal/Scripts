@@ -1,0 +1,143 @@
+nsert into table product  select * from products;
+alter table product set fileformat orc
+
+alter table product set TBLPROPERTIES ("immutable"="false");
+update products set category="Books" where url="http://www.acme.com/"
+drop table product;
+
+Corrected version:
+
+CASE WHEN t2.max_month_cd IS NOT null then 0 else 1 end test_1,
+CASE WHEN t2.max_month_cd IS null     then 0 else 1 end test_2
+
+
+
+select *,
+case when key=3 then 3 else  key end tst1,
+case when key=4 then 4 else key end tst2 
+from acid_db.hello_acid;
+
+
+select a.tst1 from (select *,
+case when key=3 then 3 else  key end tst1,
+case when key=4 then 4 else key end tst2 
+from acid_db.hello_acid) a
+
+select a.tst1 from (select *,
+case when key=3 then 3 else  "haha" end tst1,
+case when key=4 then 4 else key end tst2 
+from acid_db.hello_acid) a where a.tst1=3
+
+
+select a.tst1,a.tst2,a.load_date from (select *,
+case when key=3 then TO_DATE(current_timestamp()) else  "hahah" end tst1, 
+case when key=4 then TO_DATE(current_timestamp()) else "whoooo" end tst2 
+from acid_db.hello_acid) a where a.tst1 >= to_date('2018-11-01')
+output:
+a.tst1 	a.tst2 	a.load_date
+2018-11-09 	whoooo 	2018-11-04
+hahah 	whoooo 	2018-11-04
+hahah 	whoooo 	2018-11-04
+hahah 	2018-11-09 	2018-11-08
+
+SELECT a.key, b.value 
+FROM 
+(SELECT * FROM hello_acid) a 
+INNER JOIN (SELECT * FROM hi_acid) b ON a.key = b.key;
+output:
+a.key 	b.value
+3 	10
+1 	1
+2 	2
+4 	50
+
+
+
+SELECT a.key, b.value,
+CASE WHEN a.key=3 then TO_DATE(current_timestamp()) else "haha" end tst1,
+CASE WHEN b.value=10 then "whooo" else TO_DATE(current_timestamp()) end tst2
+FROM 
+(SELECT * FROM hello_acid) a 
+INNER JOIN (SELECT * FROM hi_acid) b ON a.key = b.key
+ output:
+ a.key 	b.value 	tst1 	tst2
+3 	10 	2018-11-10 	whooo
+1 	1 	haha 	2018-11-10
+2 	2 	haha 	2018-11-10
+4 	50 	haha 	2018-11-10
+
+
+select a1.key,a1.value,a1.tst1,a1.tst2 from (SELECT a.key as key , b.value as value,
+CASE WHEN a.key=3 then TO_DATE(current_timestamp()) else "haha" end tst1,
+CASE WHEN b.value=10 then "whooo" else TO_DATE(current_timestamp()) end tst2
+FROM (SELECT * FROM hello_acid) a 
+INNER JOIN (SELECT * FROM hi_acid) b ON a.key = b.key) a1
+where a1.tst1 >= to_date('2018-11-01')
+output:
+a1.key 	a1.value 	a1.tst1 	a1.tst2
+3 	10 	2018-11-10 	whooo
+1 	1 	haha 	2018-11-10
+2 	2 	haha 	2018-11-10
+4 	50 	haha 	2018-11-10
+
+select a1.key,a1.value,a1.tst1,a1.tst2 from (SELECT a.key as key , b.value as value,
+CASE WHEN a.key=3 then TO_DATE(current_timestamp()) else "haha" end tst1,
+CASE WHEN b.value=10 then "whooo" else TO_DATE(current_timestamp()) end tst2
+FROM (SELECT * FROM hello_acid) a 
+INNER JOIN (SELECT * FROM hi_acid) b ON a.key = b.key) a1
+where a1.tst1 <= to_date('2018-11-01')
+output:
+a1.key 	a1.value 	a1.tst1 	a1.tst2  // which is obvious.
+
+
+
+Above set is working and the belwo one is not reason could be load_date is partitioing col so it means we can not use this in the comaprison or in case
+
+
+error:
+select a.tst1 from (select *,
+case when key=3 then TO_DATE(current_timestamp()) else  load_date end tst1, 
+case when key=4 then TO_DATE(current_timestamp()) else load_date end tst2 
+from acid_db.hello_acid) a where a.tst1 >= to_date('2018-11-01')
+
+org.apache.hive.service.cli.HiveSQLException: Error while compiling statement: FAILED: SemanticException [Error 10016]: Line 2:56 Argument type mismatch 'load_date': The expression after ELSE should have the same type as those after THEN: "string" is expected but "date" is found
+       
+	   
+	   
+select case key
+when 1 then 'one' 
+when 2 then 'two' 
+when 0 then 'zero' 
+else 'out of range' 
+end from hi_acid;
+---------------
+output:
+_c0
+out of range
+one
+out of range
+two
+
+---All below functions ran on Nov12 2018---
+select day(to_date(current_timestamp()));
+output:
+12
+select DAYOFMONTH(current_timestamp());
+output
+12
+select WEEKOFYEAR(current_timestamp());
+46
+
+SELECT to_utc_timestamp ('1970-01-01 00:00:00','America/Denver');   
+_c0
+1970-01-01 07:00:00.0
+--Note: M Should be Capital Every time in MMddyyyy Format
+select cast(substring(from_unixtime(unix_timestamp('2018-11-12 00:00:00', 'MMddyyyy')),1,10));
+output:
+_c0
+2018-11-12
+
+Above stmt can also be wriitn as:
+select cast(substring(from_unixtime(unix_timestamp(cast(ch_dt_last_nonmon as string), 'yyMMdd')),1,10) as date) as ch_dt_last_nonmon
+
+

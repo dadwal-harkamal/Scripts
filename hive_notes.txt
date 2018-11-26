@@ -1,0 +1,327 @@
+The biggest limitation is that Hive does not provide
+record-level update, insert, nor delete.
+
+Hive does not
+have to be running on the same master node with the JobTracker.
+
+When working with small data sets, using local mode execution
+will make Hive queries much faster. Setting the property set
+hive.exec.mode.local.auto=true; will cause Hive to use this mode more
+aggressively, even when you are running Hadoop in distributed or pseudodistributed
+mode. To always use this setting, add the command to
+your $HOME/.hiverc file 
+
+All Hive installations require a metastore service, which Hive uses to store table schemas
+and other metadata. It is typically implemented using tables in a relational database.
+By default, Hive uses a built-in Derby SQL server, which provides limited, singleprocess
+storage. For example, when using Derby, you can’t run two simultaneous instances
+of the Hive CLI. However, this is fine for learning Hive on a personal machine
+
+
+The information required for table schema, partition information, etc.,
+is small, typically much smaller than the large quantity of data stored in
+Hive. As a result, you typically don’t need a powerful dedicated database
+server for the metastore. However because it represents a Single Point
+of Failure (SPOF), it is strongly recommended that you replicate and
+back up this database using the standard techniques you would normally
+use with other relational database instances. We won’t discuss
+those techniques here.
+
+we need to place the JDBC driver in our
+classpath. Download the MySQL JDBC driver (Jconnector) from http://www.mysql
+.com/downloads/connector/j/. The driver can be placed in the Hive library path,
+$HIVE_HOME/lib. Some teams put all such support libraries in their Hadoop lib
+directory.
+
+usuall set set hive.exec.mode.local.auto=true; in .hiverc file to speed up the queries , so that weheneevr distruibutes execution is not required the hive engine
+should use the local mode to run the queries.
+
+to run the shell commands use !
+e.g.
+hive> ! /bin/echo "what up dog";
+"what up dog"
+hive> ! pwd;
+/home/me/hiveplay
+
+
+CREATE DATABASE IF NOT EXISTS financials;
+hive> CREATE DATABASE financials  LOCATION '/my/preferred/directory';
+
+hive> CREATE DATABASE financials
+> COMMENT 'Holds all financial tables';
+hive> DESCRIBE DATABASE financials;
+financials Holds all financial tables
+hdfs://master-server/user/hive/warehouse/financials.db
+
+hive> CREATE DATABASE financials
+> WITH DBPROPERTIES ('creator' = 'Mark Moneybags', 'date' = '2012-01-02');
+hive> DESCRIBE DATABASE financials;
+financials hdfs://master-server/user/hive/warehouse/financials.db
+hive> DESCRIBE DATABASE EXTENDED financials;
+financials hdfs://master-server/user/hive/warehouse/financials.db
+{date=2012-01-02, creator=Mark Moneybags);
+
+hive> set hive.cli.print.current.db=true;
+hive (financials)> USE default;
+hive (default)> set hive.cli.print.current.db=false;
+hive> ...
+Finally, you can drop a database:
+hive> DROP DATABASE IF EXISTS financials;
+By default, Hive won’t permit you to drop a database if it contains tables. You can either
+drop the tables first or append the CASCADE keyword to the command, which will cause
+the Hive to drop the tables in the database first:
+hive> DROP DATABASE IF EXISTS financials CASCADE;
+Using the RESTRICT keyword instead of CASCADE is equivalent to the default behavior,
+where existing tables must be dropped before dropping the database.
+When a database is dropped, its directory is also deleted.
+
+
+
+Hive will create a directory for each database. Tables in that database will be stored in
+subdirectories of the database directory. The exception is tables in the default database,
+which doesn’t have its own directory.
+
+
+to print the column headers set the belwo property:
+hive> set hive.cli.print.header=true;
+hive> SELECT * FROM system_logs LIMIT 3;
+tstamp severity server message
+1335667117.337715 ERROR server1 Hard drive hd1 is 90% full!
+1335667117.338012 WARN server1 Slow response from server2.
+1335667117.339234 WARN server2 Uh, Dude, I'm kinda busy right now...
+If you always prefer seeing the headers, put the first line in your $HOME/.hiverc file.
+
+
+CREATE TABLE employees (
+name STRING,
+salary FLOAT,
+subordinates ARRAY<STRING>,
+deductions MAP<STRING, FLOAT>,
+address STRUCT<street:STRING, city:STRING, state:STRING, zip:INT>
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\001'
+COLLECTION ITEMS TERMINATED BY '\002'
+MAP KEYS TERMINATED BY '\003'
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+
+CREATE TABLE IF NOT EXISTS mydb.employees (
+name STRING COMMENT 'Employee name',
+salary FLOAT COMMENT 'Employee salary',
+subordinates ARRAY<STRING> COMMENT 'Names of subordinates',
+deductions MAP<STRING, FLOAT>
+COMMENT 'Keys are deductions names, values are percentages',
+address STRUCT<street:STRING, city:STRING, state:STRING, zip:INT>
+COMMENT 'Home address')
+COMMENT 'Description of the table'
+TBLPROPERTIES ('creator'='me', 'created_at'='2012-01-02 10:00:00', ...)
+LOCATION '/user/hive/warehouse/mydb.db/employees';
+
+If you add the option IF NOT EXISTS, Hive will silently ignore the statement if the table
+already exists. This is useful in scripts that should create a table the first time they run.
+However, the clause has a gotcha you should know. If the schema specified differs from
+the schema in the table that already exists, Hive won’t warn you.
+
+You can also copy the schema (but not the data) of an existing table:
+CREATE TABLE IF NOT EXISTS mydb.employees2 LIKE mydb.employees;
+
+if we are not in the same db we can still list the tables in another db:
+hive> SHOW TABLES IN mydb;
+
+hive> DESCRIBE EXTENDED mydb.employees;
+
+name string Employee name
+salary float Employee salary
+subordinates array<string> Names of subordinates
+deductions map<string,float> Keys are deductions names, values are percentages
+address struct<street:string,city:string,state:string,zip:int> Home address
+Detailed Table Information Table(tableName:employees, dbName:mydb, owner:me,
+...
+location:hdfs://master-server/user/hive/warehouse/mydb.db/employees,
+parameters:{creator=me, created_at='2012-01-02 10:00:00',
+last_modified_user=me, last_modified_time=1337544510,
+comment:Description of the table, ...}, ...)
+
+If you only want to see the schema for a particular column, append the column to the
+table name. Here, EXTENDED adds no additional output:
+hive> DESCRIBE mydb.employees.salary;
+salary float Employee salary
+
+CREATE EXTERNAL TABLE IF NOT EXISTS stocks (
+exchange STRING,
+symbol STRING,
+ymd STRING,
+price_open FLOAT,
+price_high FLOAT,
+price_low FLOAT,
+price_close FLOAT,
+volume INT,
+price_adj_close FLOAT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LOCATION '/data/stocks';
+
+
+You can tell whether or not a table is managed or external using the output of DESCRIBE
+EXTENDED tablename. Near the end of the Detailed Table Information output, you will
+see the following for managed tables:
+... tableType:MANAGED_TABLE)
+
+
+As for managed tables, you can also copy the schema (but not the data) of an existing
+table:
+CREATE EXTERNAL TABLE IF NOT EXISTS mydb.employees3
+LIKE mydb.employees
+LOCATION '/path/to/data';
+
+Note: If you omit the EXTERNAL keyword and the original table is external, the
+new table will also be external. If you omit EXTERNAL and the original
+table is managed, the new table will also be managed. However, if you
+include the EXTERNAL keyword and the original table is managed, the new
+table will be external. Even in this scenario, the LOCATION clause will
+still be optional.
+
+-----------Partioning-----------------
+CREATE TABLE employees (
+name STRING,
+salary FLOAT,
+subordinates ARRAY<STRING>,
+deductions MAP<STRING, FLOAT>,
+address STRUCT<street:STRING, city:STRING, state:STRING, zip:INT>
+)
+PARTITIONED BY (country STRING, state STRING);
+Partitioning tables changes how Hive structures the data storage. If we create this table
+in the mydb database, there will still be an employees directory for the table:
+hdfs://master_server/user/hive/warehouse/mydb.db/employees
+However, Hive will now create subdirectories reflecting the partitioning structure. For
+example:
+...
+.../employees/country=CA/state=AB
+.../employees/country=CA/state=BC
+
+
+For very large data sets, partitioning can dramatically improve
+query performance, but only if the partitioning scheme reflects common range
+filtering (e.g., by locations, timestamp ranges).
+
+Of course, if you need to do a query for all employees around the globe, you can still
+do it. Hive will have to read every directory, but hopefully these broader disk scans will
+be relatively rare.
+However, a query across all partitions could trigger an enormous MapReduce job if the
+table data and number of partitions are large. A highly suggested safety measure is
+putting Hive into “strict” mode, which prohibits queries of partitioned tables without
+a WHERE clause that filters on partitions. You can set the mode to “nonstrict,” as in the
+following session:
+hive> set hive.mapred.mode=strict;
+hive> SELECT e.name, e.salary FROM employees e LIMIT 100;
+FAILED: Error in semantic analysis: No partition predicate found for
+Alias "e" Table "employees"
+hive> set hive.mapred.mode=nonstrict;
+hive> SELECT e.name, e.salary FROM employees e LIMIT 100;
+
+hive> SHOW PARTITIONS employees;
+...
+Country=CA/state=AB
+country=CA/state=BC
+
+If you have a lot of partitions and you want to see if partitions have been defined for
+particular partition keys, you can further restrict the command with an optional PARTI
+TION clause that specifies one or more of the partitions with specific values:
+hive> SHOW PARTITIONS employees PARTITION(country='US');
+country=US/state=AL
+country=US/state=AK
+
+The DESCRIBE EXTENDED employees command shows the partition keys:
+hive> DESCRIBE EXTENDED employees;
+name string,
+salary float,
+...
+address struct<...>,
+country string,
+state string
+Detailed Table Information...
+partitionKeys:[FieldSchema(name:country, type:string, comment:null),
+FieldSchema(name:state, type:string, comment:null)],
+...
+
+
+You create partitions in managed tables by loading data into them. The following example
+creates a US and CA (California) partition while loading data into it from a local
+directory, $HOME/california-employees. You must specify a value for each partition
+column. Notice how we reference the HOME environment variable in HiveQL:
+LOAD DATA LOCAL INPATH '${env:HOME}/california-employees'
+INTO TABLE employees
+PARTITION (country = 'US', state = 'CA');
+The directory for this partition, …/employees/country=US/state=CA, will be created by
+Hive and all data files in $HOME/california-employees will be copied into it.
+
+
+CREATE EXTERNAL TABLE IF NOT EXISTS log_messages (
+hms INT,
+severity STRING,
+server STRING,
+process_id INT,
+message STRING)
+PARTITIONED BY (year INT, month INT, day INT)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t';
+We’re assuming that a day’s worth of log data is about the correct size for a useful
+partition and finer grain queries over a day’s data will be fast enough.
+Recall that when we created the nonpartitioned external stocks table, a LOCATION …
+clause was required. It isn’t used for external partitioned tables. Instead, an ALTER
+TABLE statement is used to add each partition separately. It must specify a value for each
+partition key, the year, month, and day, in this case (see “Alter Table” on page 66 for
+more details on this feature). Here is an example, where we add a partition for January
+2nd, 2012:
+ALTER TABLE log_messages ADD PARTITION(year = 2012, month = 1, day = 2)
+LOCATION 'hdfs://master_server/data/log_messages/2012/01/02';
+
+
+An interesting benefit of this flexibility is that we can archive old data on inexpensive
+storage, like Amazon’s S3, while keeping newer, more “interesting” data in HDFS. For
+example, each day we might use the following procedure to move data older than a
+month to S3:
+• Copy the data for the partition being moved to S3. For example, you can use the
+hadoop distcp command:
+hadoop distcp /data/log_messages/2011/12/02 s3n://ourbucket/logs/2011/12/02
+• Alter the table to point the partition to the S3 location:
+ALTER TABLE log_messages PARTITION(year = 2011, month = 12, day = 2)
+SET LOCATION 's3n://ourbucket/logs/2011/01/02';
+• Remove the HDFS copy of the partition using the hadoop fs -rmr command:
+hadoop fs -rmr /data/log_messages/2011/01/02
+
+
+
+
+
+So what if the schema doesn’t match the file contents? Hive does the best that it can to
+read the data. You will get lots of null values if there aren’t enough fields in each record
+to match the schema. If some fields are numbers and Hive encounters nonnumeric
+strings, it will return nulls for those fields. Above all else, Hive tries to recover from all
+errors as best it can.
+
+
+
+Hive also allows programmers familiar with the MapReduce framework to plug in their custom mappers and reducers to perform more sophisticated analysis that may not be
+supported by the built-in capabilities of the language.
+
+Hive users have a choice of 3 runtimes when executing SQL queries. Users can choose between Apache Hadoop MapReduce, Apache Tez or Apache Spark frameworks as their 
+execution backend.
+
+However, a query across all partitions could trigger an enormous MapReduce job if the
+table data and number of partitions are large. A highly suggested safety measure is
+putting Hive into “strict” mode, which prohibits queries of partitioned tables without
+a WHERE clause that filters on partitions. You can set the mode to “nonstrict,” as in the
+following session:
+hive> set hive.mapred.mode=strict;
+hive> SELECT e.name, e.salary FROM employees e LIMIT 100;
+FAILED: Error in semantic analysis: No partition predicate found for
+Alias "e" Table "employees"
+hive> set hive.mapred.mode=nonstrict;
+hive> SELECT e.name, e.salary FROM employees e LIMIT 100;
+Par
+
+
+
+
+
+
