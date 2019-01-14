@@ -1,4 +1,5 @@
-Note: when ec2 instance is up copy paste the script from the ec2 instance below.....
+Note: when ec2 instance is up copy paste the below script .....
+
 #!/bin/bash
 
 aws s3 cp  s3://my-first-s3-bucket-1edcdc16-2b43-4096-9fa8-e5d71caae26c/ /home/ec2-user/download/ --recursive
