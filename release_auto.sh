@@ -3,18 +3,18 @@
 repo_name=$1
 tag=$2
 tot_args=$#
-email_to="hdadwal@atb.com"
-replytoemails="atbbigdatasupport@atb.com"
+email_to="hdadwal@abc.com"
+replytoemails="atbbigdatasupport@abc.com"
 log_file=bitbucket_release.log
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
-bit_bucket_user_id=atbbigdatasupport
+bit_bucket_user_id=abcbigdatasupport
 
 echo "${TIMESTAMP}: Script Started " >> ${log_file}
 
-kinit -kt /etc/security/keytabs/hive.service.keytab hive/lxdb-cd-hwxm02.np.gcp.atbcloud.com@ATB.AB.COM
-#getActiveNode="jdbc:hive2://lxdb-cd-hwxm01.np.gcp.atbcloud.com:2181,lxdb-cd-hwxm02.np.gcp.atbcloud.com:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2;ssl=true;sslTrustStore=/usr/hdp/current/hive-server2/conf/test2_hive_odbc_ssl.jks;trustStorePassword=Bigd@ta1;transportMode=http;httpPath=cliservice;"
+kinit -kt /etc/security/keytabs/hive.service.keytab hive/fqdn.com@ABC.XX.COM
+#getActiveNode="jdbc:hive2://fqdn.com:2181,fqdn:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2;ssl=true;sslTrustStore=/usr/hdp/current/hive-server2/conf/test2_hive_odbc_ssl.jks;trustStorePassword=Bigd@ta1;transportMode=http;httpPath=cliservice;"
 
-getActiveNode="jdbc:hive2://lxdb-cd-hwxm02.np.gcp.atbcloud.com:10001/default;ssl=true;sslTrustStore=/usr/hdp/current/hive-server2/conf/test2_hive_odbc_ssl.jks;trustStorePassword=Bigd@ta1;transportMode=http;httpPath=cliservice;principal=hive/lxdb-cd-hwxm02.np.gcp.atbcloud.com@ATB.AB.COM;"
+getActiveNode="jdbc:hive2://fqdn.com:10001/default;ssl=true;sslTrustStore=/usr/hdp/current/hive-server2/conf/test2_hive_odbc_ssl.jks;trustStorePassword=Bigd@ta1;transportMode=http;httpPath=cliservice;principal=hive/lxdb-cd-hwxm02.np.gcp.atbcloud.com@ATB.AB.COM;"
 
 #echo $1
 if [ ${tot_args} -lt 2 ] ; then
